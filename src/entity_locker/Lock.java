@@ -113,4 +113,8 @@ class Lock<T> {
             }
         }
     }
+
+    public Iterable<? extends Thread> queue() {
+        return lockersQueue;
+    }
 }

@@ -13,6 +13,8 @@ public class EntityLocker<T> {
 
     private Lock<T> globalLock;
 
+    private int locksUntilEscalation = 5;
+    private int escalatedLocksCount = 0;
     private int expirationTasksCount = 0;
     public EntityLocker(boolean allowReentrantLock) {
         this.locks = new HashMap<>();
@@ -27,6 +29,11 @@ public class EntityLocker<T> {
         return locks.size()+(globalLock==null? 0 : 1);
     }
 
+    private boolean escalationNeeded(){
+        return locksUntilEscalation>0 && globalLock == null && locks.values().stream()
+                .filter(l->l.getLocker()==Thread.currentThread()).count()>locksUntilEscalation;
+    }
+
     public void lock(T id, int timeout){
         if(id == null){
             throw new NullPointerException("Id cannot be null");
@@ -35,6 +42,7 @@ public class EntityLocker<T> {
         Lock<T> lock;
         Thread thread = Thread.currentThread();
         synchronized (accessLock){
+
             lock = locks.get(id);
             if(lock != null){
                 if(lock.getLocker() == thread){
@@ -55,16 +63,29 @@ public class EntityLocker<T> {
                     lockAcquired = true;
                 } else {
                     lock = new Lock<>(id, globalLock.getLocker());
+                    for (Thread t: globalLock.queue()){
+                        lock.enqueue(t);
+                    }
                 }
                 locks.put(id, lock);
             }
-
             if(lockAcquired && timeout!=NO_TIMEOUT){
                 if(expirationTimer == null){
                     this.expirationTimer = new Timer();
                 }
                 scheduleExpiration(lock, timeout);
             }
+
+            if(escalatedLocksCount>0 && thread == globalLock.getLocker()){
+                escalatedLocksCount++;
+            }
+
+            if(lockAcquired && escalationNeeded()){
+                System.out.println("escalated");
+                globalLock = new Lock(null);
+                escalatedLocksCount = locks.size();
+            }
+
         }
         if(!lockAcquired ) {
             lock.syncEnqueueAndWait();
@@ -78,13 +99,15 @@ public class EntityLocker<T> {
 
     public void unlock(T id){
         synchronized (accessLock){
+            Thread thread = Thread.currentThread();
+
             Lock<T> lock = locks.get(id);
             if(lock == null ){
                 System.err.println("Lock not found or expired. Id: " + id);
                 return;
             }
-            if(lock.getLocker() != Thread.currentThread()){
-                if(lock.expired(Thread.currentThread())){
+            if(lock.getLocker() != thread){
+                if(lock.expired(thread)){
                     System.err.println("Lock expired. Id: " + id);
                     return;
                 } else {
@@ -95,7 +118,14 @@ public class EntityLocker<T> {
                 expirationTasksCount--;
             }
             unlockInternal(lock);
+            if(escalatedLocksCount>0 && globalLock.getLocker() == thread){
+                if(--escalatedLocksCount==0){
+                    System.out.println("escalation finished");
+                    globalUnlockInternal(thread);
+                }
+            }
         }
+
     }
 
     public void globalLock(){
@@ -164,20 +194,21 @@ public class EntityLocker<T> {
             } else {
                 globalLock.updateLocker();
             }
-            if(globalLock == null) {
-                Iterator<Map.Entry<T, Lock<T>>> it = locks.entrySet().iterator();
-                while (it.hasNext()){
-                    Lock<T> lock = it.next().getValue();
-                    if(lock.getLocker() == thread) {
-                        if(lock.decrementLocksCount() == 0){
-                            if(lock.queueSize() == 0){
-                                it.remove();
-                            } else {
-                                lock.updateLocker();
-                            }
+            Iterator<Map.Entry<T, Lock<T>>> it = locks.entrySet().iterator();
+            while (it.hasNext()){
+                Lock<T> lock = it.next().getValue();
+                if(lock.getLocker() == thread) {
+                    if(lock.decrementLocksCount() == 0){
+                        if(lock.queueSize() == 0){
+                            it.remove();
+                        } else {
+                            lock.updateLocker();
                         }
                     }
                 }
+            }
+            if(globalLock == null) {
+
                 for (Lock<T> l : locks.values()) {
                     l.syncNotify();
                 }
