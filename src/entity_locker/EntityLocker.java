@@ -46,6 +46,7 @@ public class EntityLocker<T> {
         boolean lockAcquired = false;
         Lock<T> lock;
         Thread thread = Thread.currentThread();
+
         synchronized (accessLock){
 
             lock = locks.get(id);
@@ -151,6 +152,12 @@ public class EntityLocker<T> {
                 // TODO potential deadlock
                 locks.values().forEach(Lock::enqueue);
             }
+            if( globalLockAcquired && timeout!=NO_TIMEOUT){
+                if(expirationTimer == null){
+                    this.expirationTimer = new Timer();
+                }
+                scheduleExpirationGlobal(globalLock, timeout);
+            }
         }
         if(!globalLockAcquired){
             if(needEnqueue){
@@ -158,11 +165,6 @@ public class EntityLocker<T> {
             } else {
                 globalLock.syncWait();
             }
-        } else if( timeout!=NO_TIMEOUT){
-            if(expirationTimer == null){
-                this.expirationTimer = new Timer();
-            }
-            scheduleExpirationGlobal(globalLock, timeout);
         }
     }
 
