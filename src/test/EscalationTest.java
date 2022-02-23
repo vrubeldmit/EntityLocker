@@ -3,6 +3,7 @@ package test;
 import entity_locker.EntityLocker;
 import org.junit.Test;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.Thread.sleep;
@@ -28,23 +29,28 @@ public class EscalationTest {
     public void escalationTest2() throws InterruptedException {
         EntityLocker<Integer> l = new EntityLocker<>(true);
         l.setLocksUntilEscalation(5);
-
+        CountDownLatch latch = new CountDownLatch(1);
         AtomicInteger count = new AtomicInteger(0);
 
         for (int i = 0; i< 10; i++){
             l.lock(i);
         }
+
         new Thread(()->{
+            latch.countDown();
             l.lock(11);
             count.incrementAndGet();
             l.unlock(11);
+
         }).start();
+        latch.await();
         sleep(100);
         assertEquals(0, count.intValue());
         for (int i = 0; i< 10; i++){
             l.unlock(i);
         }
-        sleep(100);
+        l.lock(11);
+        l.unlock(11);
         assertEquals(1, count.intValue());
     }
 
