@@ -53,36 +53,26 @@ public class EscalationTest {
         EntityLocker<Integer> l = new EntityLocker<>(true);
         l.setLocksUntilEscalation(5);
         AtomicInteger count = new AtomicInteger(0);
-
         for (int i = 0; i< 10; i++){
             l.lock(i);
         }
-        System.out.println("Escalated locks finished");
-
         new Thread(()->{
             l.globalLock();
-            System.out.println("Global lock acquired");
-
             count.incrementAndGet();
             try {
                 sleep(500);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            System.out.println("Global unlock");
             l.globalUnlock();
 
         }).start();
-
         sleep(100);
-
         new Thread(()->{
             l.lock(11);
-            System.out.println("lock 11 acquired");
 
             count.incrementAndGet();
 
-            System.out.println("unlock 11");
             l.unlock(11);
         }).start();
         sleep(100);
@@ -90,11 +80,9 @@ public class EscalationTest {
         for (int i = 0; i< 10; i++){
             l.unlock(i);
         }
-        System.out.println("escalated unlock");
         sleep(100);
         assertEquals(1, count.intValue());
         sleep(2000);
         assertEquals(2, count.intValue());
-
     }
 }
