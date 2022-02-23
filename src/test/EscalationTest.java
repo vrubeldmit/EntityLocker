@@ -27,6 +27,8 @@ public class EscalationTest {
     @Test
     public void escalationTest2() throws InterruptedException {
         EntityLocker<Integer> l = new EntityLocker<>(true);
+        l.setLocksUntilEscalation(5);
+
         AtomicInteger count = new AtomicInteger(0);
 
         for (int i = 0; i< 10; i++){
@@ -49,6 +51,7 @@ public class EscalationTest {
     @Test
     public void escalationTest3() throws InterruptedException {
         EntityLocker<Integer> l = new EntityLocker<>(true);
+        l.setLocksUntilEscalation(5);
         AtomicInteger count = new AtomicInteger(0);
 
         for (int i = 0; i< 10; i++){

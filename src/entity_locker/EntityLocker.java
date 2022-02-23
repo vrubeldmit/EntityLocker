@@ -16,6 +16,7 @@ public class EntityLocker<T> {
     private int locksUntilEscalation = 5;
     private int escalatedLocksCount = 0;
     private int expirationTasksCount = 0;
+
     public EntityLocker(boolean allowReentrantLock) {
         this.locks = new HashMap<>();
         this.allowReentrantLock = allowReentrantLock;
@@ -23,6 +24,10 @@ public class EntityLocker<T> {
 
     public EntityLocker(){
         this(false);
+    }
+
+    public void setLocksUntilEscalation(int limit){
+        locksUntilEscalation = limit;
     }
 
     public int locksNumber(){
@@ -81,8 +86,7 @@ public class EntityLocker<T> {
             }
 
             if(lockAcquired && escalationNeeded()){
-                System.out.println("escalated");
-                globalLock = new Lock(null);
+                globalLock = new Lock<>(null);
                 escalatedLocksCount = locks.size();
             }
 
@@ -120,7 +124,6 @@ public class EntityLocker<T> {
             unlockInternal(lock);
             if(escalatedLocksCount>0 && globalLock.getLocker() == thread){
                 if(--escalatedLocksCount==0){
-                    System.out.println("escalation finished");
                     globalUnlockInternal(thread);
                 }
             }
@@ -278,7 +281,7 @@ public class EntityLocker<T> {
         public void run(){
             synchronized (accessLock) {
                 expirationTasksCount--;
-                System.out.println("Lock expired for thread " + thread.getId() + " for lock id " + lock.getId());
+                System.err.println("Lock expired for thread " + thread.getId() + " for lock id " + lock.getId());
                 lock.lockExpired(thread);
                 unlockInternal(lock);
             }
@@ -296,7 +299,7 @@ public class EntityLocker<T> {
         public void run(){
             synchronized (accessLock) {
                 expirationTasksCount--;
-                System.out.println("Global lock expired for thread " + thread.getId());
+                System.err.println("Global lock expired for thread " + thread.getId());
                 globalLock.lockExpired(thread);
                 globalUnlockInternal(thread);
             }
