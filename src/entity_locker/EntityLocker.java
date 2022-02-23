@@ -149,7 +149,6 @@ public class EntityLocker<T> {
                 }
             }
             if(!globalLockAcquired){
-                // TODO potential deadlock
                 locks.values().forEach(Lock::enqueue);
             }
             if( globalLockAcquired && timeout!=NO_TIMEOUT){
