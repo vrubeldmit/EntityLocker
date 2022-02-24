@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/EntitiyLocker.iml" filepath="$PROJECT_DIR$/EntitiyLocker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/EntityLocker.iml" filepath="$PROJECT_DIR$/EntityLocker.iml" />
     </modules>
   </component>
 </project>
